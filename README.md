@@ -114,3 +114,29 @@ The above example is for a conversion of `string` to `float64`.
 This will handle the errors for you if there are any. The only exception will be there can be `runtime` errors if there is any
 `Type Cast Issues` So be careful with this. Try to write the testcases
 which should avoid this issue.
+
+## Filter and Mapper Deadly Combo
+
+An addition to the functionality is made now, filteration also works.
+Happy time folks!!
+
+```go
+func TestFilterIt(t *testing.T) {
+	// Create a map with some values
+	floatingStrings := []string{"0.1", "0.2", "22", "22.1"}
+
+	res, err := NewTransformer[string, int64](floatingStrings).
+		Map(MapIt[string, float64](func(item string) (float64, error) {return strconv.ParseFloat(item, 64)})).
+		Map(MapIt[float64, float64](func(item float64) (float64, error) { return item * 10, nil })).
+		Map(MapIt[float64, int64](func(item float64) (int64, error) { return int64(item), nil })).
+		Map(FilterIt[int64](func(item int64) (bool, error) { return item%2 == 0, nil })).
+		Result()
+	if err != nil {
+		t.Errorf("Testcase failed with error : %v", err)
+		return
+	}
+	// Output: [2 220]
+	t.Logf("Result: %v", res)
+	assert.ElementsMatch(t, []any{int64(2), int64(220)}, res)	
+}
+```
