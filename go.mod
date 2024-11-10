@@ -1,4 +1,4 @@
-module go-utils
+module github.com/mahadev-k/go-utils
 
 go 1.23.2
 
