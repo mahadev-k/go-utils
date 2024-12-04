@@ -185,3 +185,36 @@ func TestMapRunnerLib(t *testing.T) {
 	assert.ElementsMatch(t, []any{int64(2), int64(220)}, res)
 }
 ```
+
+## SQL Transaction support
+
+There are instances where you might need to wrap sql transactions.  For example you are having some Order objects where you might want to save the order
+and then update the inventory quantity and then save shipments. And you might want to rollback the transaction if some error occurs during the transaction.
+This is where `dbutils` library can be used. Here is an example of how you can write code that matters. A packed up code with higher order functions and transactions can make the code look cool.
+
+You can find further implementations in sql_tx_*.go files and examples
+
+```go
+func TestSqlWriteExec_CreateOrderTxn(t *testing.T) {
+
+	db := setupDatabase()
+	// create a new SQL Write Executor
+	err := dbutils.NewSqlTxnExec[OrderRequest, OrderProcessingResponse](context.TODO(), db, nil, &OrderRequest{CustomerName: "CustomerA", ProductID: 1, Quantity: 10}).
+		StatefulExec(InsertOrder).
+		StatefulExec(UpdateInventory).
+		StatefulExec(InsertShipment).
+		Commit()
+	// check if the transaction was committed successfully
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	verifyTransactionSuccessful(t, db)
+	t.Cleanup(
+		func() { 
+			cleanup(db)
+			db.Close() 
+		},
+	)
+}
+```
