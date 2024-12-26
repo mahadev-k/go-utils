@@ -105,7 +105,7 @@ func(t *Transformer[T, R]) Map(mapper ObjectMapper) *Transformer[T, R] {
 	return t
 }
 
-func(t *Transformer[T, R]) Result() (any, error) {
+func(t *Transformer[T, R]) Result() (r []R, err error) {
 	for _, mapper := range t.mappers {
 		items, err := mapper.Result(t.items)
 		if err != nil {
