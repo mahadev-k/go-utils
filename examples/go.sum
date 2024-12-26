@@ -2,8 +2,8 @@ github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7Oputl
 github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/mahadev-k/go-utils v1.0.2 h1:rUno/M12rB8oSh/xFJg945cEm4p2wIYUsMwV9c6sIgM=
-github.com/mahadev-k/go-utils v1.0.2/go.mod h1:o+zb2soIT6EdpIXPVn/PjeSqX2M0+WBFCYlRbpBK7ac=
+github.com/mahadev-k/go-utils v1.0.5 h1:wuQTTLurspCmNyV/7yaRYA08v8ym+wH0yK6v+maQKBg=
+github.com/mahadev-k/go-utils v1.0.5/go.mod h1:o+zb2soIT6EdpIXPVn/PjeSqX2M0+WBFCYlRbpBK7ac=
 github.com/mattn/go-sqlite3 v1.14.24 h1:tpSp2G2KyMnnQu99ngJ47EIkWVmliIizyZBfPrBWDRM=
 github.com/mattn/go-sqlite3 v1.14.24/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
