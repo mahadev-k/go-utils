@@ -7,6 +7,8 @@ import (
 
 type MappingFn[T any, R any] func(item T) (R, error)
 type FilterFn[T any] func(item T) (bool, error)
+type SimpleMapper[T any, R any] func(item T) R
+type SimpleFilter[T any] func(item T) bool
 
 type ObjectMapper interface {
 	Result(items any) (any, error)
@@ -15,6 +17,8 @@ type ObjectMapper interface {
 type MapRunner[T, R any] struct {
 	mappingFn MappingFn[T, R]
 	filterFn FilterFn[T]
+	simpleMapper SimpleMapper[T, R]
+	simpleFilter SimpleFilter[T]
 	err       error
 }
 
@@ -25,9 +29,23 @@ func MapIt[T, R any](fn MappingFn[T, R]) *MapRunner[T, R] {
 	}
 }
 
+func MapItSimple[T, R any](fn SimpleMapper[T, R]) *MapRunner[T, R] {
+	return &MapRunner[T, R]{
+		simpleMapper: fn,
+		err:       nil,
+	}
+}
+
 func FilterIt[T any] (fn FilterFn[T]) *MapRunner[T,T] {
 	return &MapRunner[T, T] {
 		filterFn: fn,
+		err: nil,
+	}
+}
+
+func FilterItSimple[T any] (fn SimpleFilter[T]) *MapRunner[T,T] {
+	return &MapRunner[T, T] {
+		simpleFilter: fn,
 		err: nil,
 	}
 }
@@ -50,6 +68,16 @@ func (m *MapRunner[T, R]) Result(items any) (any, error) {
 			if err != nil {
 				return nil, err
 			}
+			if ok {
+				var res any
+				res = item
+				results = append(results, res.(R))
+			}
+		} else if m.simpleMapper != nil {
+			res := m.simpleMapper(item)
+			results = append(results, res)
+		} else if m.simpleFilter != nil {
+			ok := m.simpleFilter(item)
 			if ok {
 				var res any
 				res = item
