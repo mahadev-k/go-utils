@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/mahadev-k/go-utils/dbutils"
-	_ "github.com/mattn/go-sqlite3" // Import sqlite3 driver as a side effect
 	"github.com/stretchr/testify/assert"
+	_ "modernc.org/sqlite" // Import pure Go sqlite driver
 )
 
 type OrderRequest struct {
@@ -38,9 +38,9 @@ func TestSqlWriteExec_CreateOrderTxn(t *testing.T) {
 	}
 	verifyTransactionSuccessful(t, db)
 	t.Cleanup(
-		func() { 
+		func() {
 			cleanup(db)
-			db.Close() 
+			db.Close()
 		},
 	)
 }
@@ -48,25 +48,25 @@ func TestSqlWriteExec_CreateOrderTxn(t *testing.T) {
 func TestRollback(t *testing.T) {
 	db := setupDatabase()
 
-    err := dbutils.NewSqlTxnExec[OrderRequest, OrderProcessingResponse](context.TODO(), db, nil, &OrderRequest{CustomerName: "CustomerA", ProductID: 1, Quantity: 30}).
-        StatefulExec(InsertOrder).
-        StatefulExec(UpdateInventory).
-        StatefulExec(InsertShipment).
-        Commit()
+	err := dbutils.NewSqlTxnExec[OrderRequest, OrderProcessingResponse](context.TODO(), db, nil, &OrderRequest{CustomerName: "CustomerA", ProductID: 1, Quantity: 30}).
+		StatefulExec(InsertOrder).
+		StatefulExec(UpdateInventory).
+		StatefulExec(InsertShipment).
+		Commit()
 
-    // check if the transaction was rolled back successfully
-    if err == nil {
-        t.Fatal("Expected error during rollback, but none occurred")
-        return
-    }
+	// check if the transaction was rolled back successfully
+	if err == nil {
+		t.Fatal("Expected error during rollback, but none occurred")
+		return
+	}
 
-    verifyTransactionFailed(t, db)
-    t.Cleanup(
-        func() { 
-            cleanup(db)
-            db.Close() 
-        },
-    )
+	verifyTransactionFailed(t, db)
+	t.Cleanup(
+		func() {
+			cleanup(db)
+			db.Close()
+		},
+	)
 }
 
 func verifyTransactionFailed(t *testing.T, db *sql.DB) {
@@ -80,18 +80,18 @@ func verifyTransactionFailed(t *testing.T, db *sql.DB) {
 	if count != 0 {
 		t.Errorf("Expected 0 orders, but got %d", count)
 		return
-	}		
+	}
 
 }
 
 func verifyTransactionSuccessful(t *testing.T, db *sql.DB) {
-    // Verify the transaction data
-    // Check if the Order, Inventory, and Shipment were inserted and updated correctly
+	// Verify the transaction data
+	// Check if the Order, Inventory, and Shipment were inserted and updated correctly
 	// run select queries against the database to verify the results
 	var orderID int64
 	var shippingID int64
 	var productQuantity int
-	
+
 	row := db.QueryRow("SELECT id FROM orders WHERE customer_name =?", "CustomerA")
 	err := row.Scan(&orderID)
 	if err != nil {
@@ -99,7 +99,7 @@ func verifyTransactionSuccessful(t *testing.T, db *sql.DB) {
 		return
 	}
 
-    row = db.QueryRow("SELECT product_quantity FROM inventory WHERE id =?", 1)
+	row = db.QueryRow("SELECT product_quantity FROM inventory WHERE id =?", 1)
 	err = row.Scan(&productQuantity)
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func verifyTransactionSuccessful(t *testing.T, db *sql.DB) {
 	}
 	t.Log("Order ID: ", orderID)
 	t.Log("Product Quantity: ", productQuantity)
-	t.Log("Shipping ID: ", shippingID)	
+	t.Log("Shipping ID: ", shippingID)
 
 	assert.Equal(t, productQuantity, 10)
 }
@@ -151,7 +151,7 @@ func InsertShipment(ctx context.Context, txn *sql.Tx, order *OrderRequest, order
 func setupDatabase() *sql.DB {
 	// Arrange
 	// create a sqllite db
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		panic(err)
 	}
@@ -187,17 +187,23 @@ func setupDatabase() *sql.DB {
 	_, err = db.Exec(query)
 	if err != nil {
 		panic(err)
-    }
+	}
 
 	return db
 }
 
 func cleanup(db *sql.DB) error {
 	_, err := db.Exec("DROP TABLE IF EXISTS Order")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	_, err = db.Exec("DROP TABLE IF EXISTS inventory")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	_, err = db.Exec("DROP TABLE IF EXISTS shipment")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	return nil
 }
