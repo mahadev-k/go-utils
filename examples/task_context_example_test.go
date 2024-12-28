@@ -61,7 +61,7 @@ func generateLabel(orderID string, cost float64) goctx.RunFn[string] {
 		if cost <= 0 {
 			return "", errors.New("invalid shipping cost")
 		}
-		return fmt.Sprintf("TRACK-%s-%d", orderID, time.Now().Unix()), nil
+		return fmt.Sprintf("TRACK-%s-1234567890", orderID), nil
 	}
 }
 
@@ -80,7 +80,7 @@ func ExampleTaskContext_OrderProcessing() {
 	inventoryChecks := goctx.Run[[]goctx.RunFn[bool]](taskCtx,
 		func() ([]goctx.RunFn[bool], error) {
 			return streams.NewTransformer[OrderItem, goctx.RunFn[bool]](order).
-				Map(streams.MapItSimple(checkInventory)).
+				Transform(streams.MapItSimple(checkInventory)).
 				Result()
 		})
 
@@ -95,16 +95,14 @@ func ExampleTaskContext_OrderProcessing() {
 func ExampleTaskContext_ShipmentProcessing() {
 	ctx := goctx.NewTaskContext(context.Background())
 
-	order := []OrderItem{
-		{ProductID: "MOUSE", Quantity: 1},
-	}
-	shipment := Shipment{OrderID: "ORD123"}
+	order := dummyOrder()
+	shipment := dummyShipment()
 
 	// Step 1: Validate address
-	_ = goctx.Run(ctx, validateAddress("123 Main St"))
 	// Step 2: Calculate shipping cost
-	cost := goctx.Run(ctx, calculateShipping(order))
 	// Step 3: Generate label
+	_ = goctx.Run(ctx, validateAddress("123 Main St"))
+	cost := goctx.Run(ctx, calculateShipping(order))
 	trackingNum := goctx.Run(ctx, generateLabel(shipment.OrderID, cost))
 
 	if ctx.Err() != nil {
@@ -118,4 +116,35 @@ func ExampleTaskContext_ShipmentProcessing() {
 
 	// Output:
 	// Shipment processed: {OrderID:ORD123 Status:READY TrackingNum:TRACK-ORD123-1234567890}
+}
+
+func ExampleTaskContext_ShipmentProcessing_WithError() {
+	ctx := goctx.NewTaskContext(context.Background())
+
+	order := dummyOrder()
+	shipment := dummyShipment()
+
+	goctx.Run(ctx, validateAddress(""))
+	cost := goctx.Run(ctx, calculateShipping(order))
+	goctx.Run(ctx, generateLabel(shipment.OrderID, cost))
+
+	if ctx.Err() != nil {
+		fmt.Printf("Error: %v\n", ctx.Err())
+		return
+	}
+
+	fmt.Printf("Shipment processed: %+v\n", shipment)
+
+	// Output:
+	// Error: invalid address
+}
+
+func dummyOrder() []OrderItem {
+	return []OrderItem{
+		{ProductID: "MOUSE", Quantity: 1},
+	}
+}
+
+func dummyShipment() Shipment {
+	return Shipment{OrderID: "ORD123"}
 }
