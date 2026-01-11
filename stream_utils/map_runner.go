@@ -7,15 +7,19 @@ import (
 
 type MappingFn[T any, R any] func(item T) (R, error)
 type FilterFn[T any] func(item T) (bool, error)
+type SimpleMapper[T any, R any] func(item T) R
+type SimpleFilter[T any] func(item T) bool
 
 type ObjectMapper interface {
 	Result(items any) (any, error)
 }
 
 type MapRunner[T, R any] struct {
-	mappingFn MappingFn[T, R]
-	filterFn FilterFn[T]
-	err       error
+	mappingFn    MappingFn[T, R]
+	filterFn     FilterFn[T]
+	simpleMapper SimpleMapper[T, R]
+	simpleFilter SimpleFilter[T]
+	err          error
 }
 
 func MapIt[T, R any](fn MappingFn[T, R]) *MapRunner[T, R] {
@@ -25,10 +29,24 @@ func MapIt[T, R any](fn MappingFn[T, R]) *MapRunner[T, R] {
 	}
 }
 
-func FilterIt[T any] (fn FilterFn[T]) *MapRunner[T,T] {
-	return &MapRunner[T, T] {
+func MapItSimple[T, R any](fn SimpleMapper[T, R]) *MapRunner[T, R] {
+	return &MapRunner[T, R]{
+		simpleMapper: fn,
+		err:          nil,
+	}
+}
+
+func FilterIt[T any](fn FilterFn[T]) *MapRunner[T, T] {
+	return &MapRunner[T, T]{
 		filterFn: fn,
-		err: nil,
+		err:      nil,
+	}
+}
+
+func FilterItSimple[T any](fn SimpleFilter[T]) *MapRunner[T, T] {
+	return &MapRunner[T, T]{
+		simpleFilter: fn,
+		err:          nil,
 	}
 }
 
@@ -55,29 +73,38 @@ func (m *MapRunner[T, R]) Result(items any) (any, error) {
 				res = item
 				results = append(results, res.(R))
 			}
+		} else if m.simpleMapper != nil {
+			res := m.simpleMapper(item)
+			results = append(results, res)
+		} else if m.simpleFilter != nil {
+			ok := m.simpleFilter(item)
+			if ok {
+				var res any
+				res = item
+				results = append(results, res.(R))
+			}
 		}
 	}
 	return results, nil
 }
 
 type Transformer[T any, R any] struct {
-	items any
+	items   any
 	mappers []ObjectMapper
-
 }
 
-func NewTransformer[T , R any](items []T) *Transformer[T, R] {
+func NewTransformer[T, R any](items []T) *Transformer[T, R] {
 	return &Transformer[T, R]{
 		items: items,
 	}
 }
 
-func(t *Transformer[T, R]) Map(mapper ObjectMapper) *Transformer[T, R] {
+func (t *Transformer[T, R]) Transform(mapper ObjectMapper) *Transformer[T, R] {
 	t.mappers = append(t.mappers, mapper)
 	return t
 }
 
-func(t *Transformer[T, R]) Result() (any, error) {
+func (t *Transformer[T, R]) Result() (r []R, err error) {
 	for _, mapper := range t.mappers {
 		items, err := mapper.Result(t.items)
 		if err != nil {
