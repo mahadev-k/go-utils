@@ -3,7 +3,7 @@ module github.com/mahadev-k/go-utils/examples
 go 1.23.2
 
 require (
-	github.com/mahadev-k/go-utils v1.1.1
+	github.com/mahadev-k/go-utils v1.1.2
 	github.com/stretchr/testify v1.10.0
 	modernc.org/sqlite v1.25.0
 )
