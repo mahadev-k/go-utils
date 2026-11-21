@@ -65,7 +65,7 @@ func generateLabel(orderID string, cost float64) goctx.RunFn[string] {
 	}
 }
 
-func ExampleTaskContext_OrderProcessing() {
+func ExampleRun_taskContextOrderProcessing() {
 	ctx := goctx.NewTaskContext(context.Background())
 
 	// Mock order
@@ -77,7 +77,7 @@ func ExampleTaskContext_OrderProcessing() {
 	taskCtx := goctx.NewTaskContext(ctx)
 
 	// Create inventory checks for each item
-	inventoryChecks := goctx.Run[[]goctx.RunFn[bool]](taskCtx,
+	inventoryChecks := goctx.Run(taskCtx,
 		func() ([]goctx.RunFn[bool], error) {
 			return streams.NewTransformer[OrderItem, goctx.RunFn[bool]](order).
 				Transform(streams.MapItSimple(checkInventory)).
@@ -92,7 +92,7 @@ func ExampleTaskContext_OrderProcessing() {
 	// Inventory check error: task 1: insufficient inventory for LAPTOP
 }
 
-func ExampleTaskContext_ShipmentProcessing() {
+func ExampleRun_taskContextShipmentProcessing() {
 	ctx := goctx.NewTaskContext(context.Background())
 
 	order := dummyOrder()
@@ -118,7 +118,7 @@ func ExampleTaskContext_ShipmentProcessing() {
 	// Shipment processed: {OrderID:ORD123 Status:READY TrackingNum:TRACK-ORD123-1234567890}
 }
 
-func ExampleTaskContext_ShipmentProcessing_WithError() {
+func ExampleRun_taskContextshipmentProcessingWithError() {
 	ctx := goctx.NewTaskContext(context.Background())
 
 	order := dummyOrder()

@@ -1,28 +1,24 @@
 # Go-Utils
 
-go-utils is a library that is aimed provide useful libraries in go
-to reduce the developer efforts on building stuffs and increasing 
-productivity.
+A collection of **production-grade Go utilities** designed to reduce boilerplate, improve readability, and boost developer productivity — from clean workflow orchestration to **LLM-first token shrinking** 🚀
 
-Few functionalities are mentioned below.
+---
 
-## Task Runner
+## 🧰 What’s inside?
 
-The basic problem that this is trying to solve is how you want to run
-multiple tasks based on a request that you recieved.
-It's similar to jobs where you might want to run
-`processA` followed by `processB` and so on.
-All these process can result in an error. Golang is very verbose in error handling. Sometimes we dont want to see that redundant code.
-Also this reduces the readability.
-Once you handle the error for `processA` and you forgot for `processB`
-Golang wont throw a compile time error causing you to miss this case.
-A small miss can cause havoc. Though we are supposed to follow a lot of process before shipping to prod ask yourselves do you follow always or not? 
-To solve this I have developed an approach where you will be 
-more focussed on writing what matters and how easy would it be to look at a fn and understand what it does. This will also help in overcoming variable shadowing. Instances where we have multiple errors being assinged an error shadowing can occur and this can be bad. Following this pattern and right coding can help in avoiding such weird scenarios.
+* 🧵 **Task Runner** – sequential & parallel workflows with clean error handling
+* 🔄 **Stream Utils** – functional-style map / filter pipelines
+* 🗄️ **SQL Transaction Helpers** – composable transactional execution
+* ⚙️ **YAML Config Loader** – layered YAML + env var configs, typed accessors, AWS secrets resolution
+* 🤖 **LLM-Utils (TRON)** – token-efficient JSON encoding for LLMs
 
-Examples -
+---
 
-#### A code with redundant error handling and reduced readability.
+## 🧵 Task Runner
+
+Run multiple steps in sequence **without verbose error handling** and without risking missed checks or variable shadowing.
+
+### Before (verbose & error-prone)
 
 ```go
 func FooBar() error {
@@ -30,20 +26,20 @@ func FooBar() error {
 		isFoo bool
 		isBar bool
 	}{}
-	ctx := context.TODO()
-	err := processFoo(ctx, &req)
-	if err != nil {
-		return err
-	}
-	err = processBar(ctx, &req)
-	if err != nil {
-		return err
-	}
-	return nil
+    ctx := context.TODO()
+    err := processFoo(ctx, &req)
+    if err != nil {
+        return err
+    }
+    err = processBar(ctx, &req)
+    if err != nil {
+        return err
+    }
+    return nil
 }
 ```
 
-#### A code with the task runner
+### After (clean & expressive)
 
 ```go
 func FooBar() error {
@@ -51,195 +47,157 @@ func FooBar() error {
 		isFoo bool
 		isBar bool
 	}{}
-	ctx := context.TODO()
-	runner := NewSimpleTaskRunner(ctx, req)
-	_, err := runner.
-		Then(processFoo).
-		Then(processBar).
-		Result()
-	return err
+    ctx := context.TODO()
+    runner := NewSimpleTaskRunner(ctx, req)
+    _, err := runner.
+        Then(processFoo).
+        Then(processBar).
+        Result()
+    return err
+}
 ```
 
-As you can observe how better the code is readable and executable. This thought process and framework can improve the readability of the code.
-
-## Go-routine Enthusiasts
+### ⚡ Parallel execution
 
 ```go
-func FooBar() error {
-	req := struct{
+req := struct{
 		isFoo bool
 		isBar bool
 	}{}
-	ctx := context.TODO()
-	runner := NewSimpleTaskRunner(ctx, req)
-	_, err := runner.
-		Parallel(processFooParallel).
-		Parallel(processBarParallel).
-		Result()
-	return err
-}
+runner := NewSimpleTaskRunner(ctx, req)
+_, err := runner.
+    Parallel(processFooParallel).
+    Parallel(processBarParallel).
+    Result()
 ```
 
+---
 
-## Stream Utils
+## 🔄 Stream Utils (Map / Filter Pipelines)
 
-We all know the famous lambdas and arrow functions. Golang
-inherently doesnt support the arrow syntax. It would be nice to have
-that in golang. For now suppose we need to do some Map operation that
-is were things get hard. Well you are in for a cool implementation
-from me to solve that for you. After this below implementation I would
-ask you to think a soln of your own how this would have been implemented.
+Functional-style transformations inspired by streams & lambdas — but **idiomatic Go**.
 
 ```go
-func TestMapRunner(t *testing.T) {
-	// Create a map with some values
-	floatingStrings := []string{"0.1", "0.2", "22", "22.1"}
-
-	res, err := NewTransformer[string, float64](floatingStrings).
-		Transform(MapIt[string, float64](func(item string) (float64, error) { return strconv.ParseFloat(item, 64) })).
-		Transform(MapIt[float64, float64](func(item float64) (float64, error) { return item * 10, nil })).
-		Result()
-	if err != nil {
-		t.Errorf("Testcase failed with error : %v", err)
-		return
-	}
-	// Output: [0.1 0.2 22 22.1]
-	t.Logf("Result: %v", res)
-	assert.ElementsMatch(t, []any{float64(1), float64(2), float64(220), float64(221)}, res)
-
-}
+res, err := NewTransformer[string, int64](floatingStrings).
+    Transform(MapIt[string, float64](strconv.ParseFloat)).
+    Transform(MapIt[float64, float64](func(v float64) (float64, error) { return v * 10, nil })).
+    Transform(MapIt[float64, int64](func(v float64) (int64, error) { return int64(v), nil })).
+    Transform(FilterIt[int64](func(v int64) (bool, error) { return v%2 == 0, nil })).
+    Result()
 ```
 
-The above example is for a conversion of `string` to `float64`.
-This will handle the errors for you if there are any. The only exception will be there can be `runtime` errors if there is any
-`Type Cast Issues` So be careful with this. Try to write the testcases
-which should avoid this issue.
+✔ Automatic error propagation
+✔ No intermediate slices
+✔ Readable, testable pipelines
 
-## Filter and Mapper Deadly Combo
+---
 
-An addition to the functionality is made now, filteration also works.
-Happy time folks!!
+## 🗄️ SQL Transaction Helpers
+
+Compose **multi-step database transactions** without scattering rollback logic everywhere.
 
 ```go
-func TestFilterIt(t *testing.T) {
-	// Create a map with some values
-	floatingStrings := []string{"0.1", "0.2", "22", "22.1"}
-
-	res, err := NewTransformer[string, int64](floatingStrings).
-		Transform(MapIt[string, float64](func(item string) (float64, error) {return strconv.ParseFloat(item, 64)})).
-		Transform(MapIt[float64, float64](func(item float64) (float64, error) { return item * 10, nil })).
-		Transform(MapIt[float64, int64](func(item float64) (int64, error) { return int64(item), nil })).
-		Transform(FilterIt[int64](func(item int64) (bool, error) { return item%2 == 0, nil })).
-		Result()
-	if err != nil {
-		t.Errorf("Testcase failed with error : %v", err)
-		return
-	}
-	// Output: [2 220]
-	t.Logf("Result: %v", res)
-	assert.ElementsMatch(t, []any{int64(2), int64(220)}, res)	
-}
+err := dbutils.NewSqlTxnExec[OrderRequest, OrderProcessingResponse](
+    context.TODO(), db, nil, &OrderRequest{CustomerName: "CustomerA"},
+).
+    StatefulExec(InsertOrder).
+    StatefulExec(UpdateInventory).
+    StatefulExec(InsertShipment).
+    Commit()
 ```
 
-## Import library to your project to build cool stuff.
+✔ Automatic rollback on error
+✔ Higher-order functions for clarity
+✔ Ideal for service-layer code
 
-`go get -u github.com/mahadev-k/go-utils@v1.0.1`
+---
 
-Add this to your go.mod.
-Use it as done in the examples module.
+## ⚙️ YAML Config Loader
+
+Layered config from **YAML files + environment variables**, with deep-merged overrides.
 
 ```go
-module examples
-
-go 1.23.2
-
-require github.com/stretchr/testify v1.9.0
-
-require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/mahadev-k/go-utils v1.0.1 // indirect *go-utils*
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+cfg, err := yaml_configs.Load(
+	yaml_configs.File("config/env.yaml"),               // required
+	yaml_configs.OptionalFile("config/env.local.yaml"), // skipped if missing
+	yaml_configs.Env("MYAPP_"),                        // MYAPP_DATABASE_PORT overrides database.port
 )
 ```
 
-#### Simple example
-
 ```go
-func TestMapRunnerLib(t *testing.T) {
-	// Create a map with some values
-	floatingStrings := []string{"0.1", "0.2", "22", "22.1"}
+port, err := cfg.Int("database.port")
+timeout, err := cfg.Duration("http.timeout")
+debug := yaml_configs.GetOr(cfg, "debug", false)
+```
 
-	res, err := streams.NewTransformer[string, int64](floatingStrings).
-		Transform(streams.MapIt[string, float64](func(item string) (float64, error) { return strconv.ParseFloat(item, 64) })).
-		Transform(streams.MapIt[float64, float64](func(item float64) (float64, error) { return item * 10, nil })).
-		Transform(streams.MapIt[float64, int64](func(item float64) (int64, error) { return int64(item), nil })).
-		Transform(streams.FilterIt[int64](func(item int64) (bool, error) { return item%2 == 0, nil })).
-		Result()
-	if err != nil {
-		t.Errorf("Testcase failed with error : %v", err)
-		return
-	}
-	// Output: [2 220]
-	t.Logf("Result: %v", res)
-	assert.ElementsMatch(t, []any{int64(2), int64(220)}, res)
+✔ Deterministic override order (files → env)
+✔ Typed accessors that return errors, never panic
+✔ Case-insensitive keys: `database.port` == `DATABASE_PORT`
+✔ Secrets resolved at load: `aws::secrets::prod/db$password`, `aws::ssm::/app/api-key` (via `yaml_configs/awsref`)
+
+📖 Full docs: [`yaml_configs/README.md`](yaml_configs/README.md)
+
+---
+
+## 🤖 LLM-Utils (TRON)
+
+Utilities to **dramatically reduce token usage** when sending structured JSON payloads to LLMs.
+
+### 🚀 TRON (Token Relational Object Notation)
+
+TRON converts nested JSON into compact, relational-style tables:
+
+* Nested objects → separate tables
+* Parent-child relations → `<field>_id`
+* Automatic row de-duplication
+* Deterministic ordering (great for prompt caching)
+
+### Example
+
+Input JSON:
+
+```json
+{
+  "people": [
+    {"name":"p8","addresses":[{"street":"3rd","city":"la","country":{"code":"US","name":"usa"}}]}
+  ]
 }
 ```
 
-## SQL Transaction support
+TRON output:
 
-There are instances where you might need to wrap sql transactions.  For example you are having some Order objects where you might want to save the order
-and then update the inventory quantity and then save shipments. And you might want to rollback the transaction if some error occurs during the transaction.
-This is where `dbutils` library can be used. Here is an example of how you can write code that matters. A packed up code with higher order functions and transactions can make the code look cool.
-
-You can find further implementations in sql_tx_*.go files and examples
-
-```go
-func TestSqlWriteExec_CreateOrderTxn(t *testing.T) {
-
-	db := setupDatabase()
-	// create a new SQL Write Executor
-	err := dbutils.NewSqlTxnExec[OrderRequest, OrderProcessingResponse](context.TODO(), db, nil, &OrderRequest{CustomerName: "CustomerA", ProductID: 1, Quantity: 10}).
-		StatefulExec(InsertOrder).
-		StatefulExec(UpdateInventory).
-		StatefulExec(InsertShipment).
-		Commit()
-	// check if the transaction was committed successfully
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-	verifyTransactionSuccessful(t, db)
-	t.Cleanup(
-		func() { 
-			cleanup(db)
-			db.Close() 
-		},
-	)
-}
+```
+name,addresses_id
+p8,[1]
+---addresses
+city,street,country_id
+la,3rd,1
+---addresses.country
+code,name
+US,usa
 ```
 
-## Yaml Configs
+💡 LLMs can now easily answer:
+**“Where does p8 live?” → LA, 3rd Street, USA**
 
-```go
-func ExampleLoadConfigWithOverrides() {
-	// Load configs in order of precedence
-	_, err := yaml_configs.LoadConfigWithSuffix(
-		"./test_data/env",
-		"local",
-	)
-}
+✔ 60–80% token reduction
+✔ Human-readable
+✔ LLM-reasoning friendly
+
+---
+
+## 📦 Install
+
+```bash
+go get -u github.com/mahadev-k/go-utils
 ```
 
-This will load the configs from the files in the order of precedence. 
-Values from later files override earlier ones.
+---
 
-```go
-func ExampleGet() {
-	// Get a value from the config
-	value := yaml_configs.Get[string]("database.host")
-	fmt.Println(value)
-}
-```
+## ⭐ Philosophy
 
+> Write less glue code.
+> Make workflows obvious.
+> Optimize for both **humans and LLMs**.
 
+If this repo saved you time, give it a ⭐ and build cooler Go systems ✨
