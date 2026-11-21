@@ -9,7 +9,7 @@ A collection of **production-grade Go utilities** designed to reduce boilerplate
 * 🧵 **Task Runner** – sequential & parallel workflows with clean error handling
 * 🔄 **Stream Utils** – functional-style map / filter pipelines
 * 🗄️ **SQL Transaction Helpers** – composable transactional execution
-* ⚙️ **YAML Config Loader** – layered YAML + env var configs with typed accessors
+* ⚙️ **YAML Config Loader** – layered YAML + env var configs, typed accessors, AWS secrets resolution
 * 🤖 **LLM-Utils (TRON)** – token-efficient JSON encoding for LLMs
 
 ---
@@ -133,6 +133,7 @@ debug := yaml_configs.GetOr(cfg, "debug", false)
 ✔ Deterministic override order (files → env)
 ✔ Typed accessors that return errors, never panic
 ✔ Case-insensitive keys: `database.port` == `DATABASE_PORT`
+✔ Secrets resolved at load: `aws::secrets::prod/db$password`, `aws::ssm::/app/api-key` (via `yaml_configs/awsref`)
 
 📖 Full docs: [`yaml_configs/README.md`](yaml_configs/README.md)
 

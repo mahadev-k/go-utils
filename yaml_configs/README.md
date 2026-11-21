@@ -37,6 +37,49 @@ the whole environment.
 generic `GetAs[T]`) parse strings, so values from env vars work, and return errors wrapping
 `ErrNotFound` or `ErrInvalidValue`. They never panic. A YAML `null` counts as unset.
 
+### Secrets: AWS Secrets Manager and SSM Parameter Store
+
+Any value — from YAML or an env var — can be a reference that is resolved at load time:
+
+| Value | Resolves to |
+|---|---|
+| `aws::secrets::<secret-id>` | the whole `SecretString` |
+| `aws::secrets::<secret-id>$<key>` | one field of a JSON `SecretString` |
+| `aws::ssm::<parameter-name>` | the parameter value (`SecureString` is decrypted) |
+
+`<secret-id>` is a name or ARN; `<parameter-name>` is a name, ARN or `name:version`.
+
+```go
+import (
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/mahadev-k/go-utils/yaml_configs"
+	"github.com/mahadev-k/go-utils/yaml_configs/awsref"
+)
+
+awsCfg, err := config.LoadDefaultConfig(ctx)
+cfg, err := yaml_configs.LoadContext(ctx,
+	yaml_configs.File("config/env.yaml"),
+	yaml_configs.Env("MYAPP_"),
+	yaml_configs.Resolve(awsref.New(awsCfg)), // last: resolves values from the sources above
+)
+```
+
+```yaml
+database:
+  user: aws::secrets::prod/db$username
+  password: aws::secrets::prod/db$password
+origin_verify_secret: aws::ssm::/myapp/prod/origin-verify
+```
+
+- Each distinct secret or parameter is fetched once per load (several `$key`s share one call), concurrently.
+- Load fails if a reference can't be resolved. Any value starting with `aws::` is treated as a reference,
+  so a typo like `aws::secret::x` is an error rather than a literal string. Errors never include secret values.
+- Values inside YAML lists are not resolved.
+- IAM: `secretsmanager:GetSecretValue`, `ssm:GetParameter`, plus `kms:Decrypt` for customer-managed keys.
+- In a shell, single-quote values containing `$`: `export MYAPP_DB_PASSWORD='aws::secrets::prod/db$password'`.
+- The AWS SDK is only pulled in if you import `yaml_configs/awsref`. Other secret stores can plug in by
+  implementing `yaml_configs.Resolver` (`Match` + `ResolveAll`).
+
 ### Package-level API (deprecated)
 
 `LoadConfigWithSuffix` / `LoadConfigWithOverrides` + `Get[T]` still work. Missing files are

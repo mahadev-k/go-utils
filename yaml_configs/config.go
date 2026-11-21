@@ -5,6 +5,7 @@
 //		yaml_configs.File("config/env.yaml"),               // required
 //		yaml_configs.OptionalFile("config/env.local.yaml"), // skipped if missing
 //		yaml_configs.Env("MYAPP_"),                        // MYAPP_DATABASE_PORT overrides database.port
+//		yaml_configs.Resolve(awsref.New(awsCfg)),           // "aws::ssm::/app/db-password" -> its value
 //	)
 //
 // Sources are applied in order; later sources override earlier ones. YAML
@@ -16,6 +17,7 @@
 package yaml_configs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -47,7 +49,7 @@ type entry struct {
 
 // Source is one configuration layer passed to Load.
 type Source interface {
-	apply(entries map[string]entry) error
+	apply(ctx context.Context, entries map[string]entry) error
 }
 
 // File is a YAML file that must exist.
@@ -65,9 +67,14 @@ func Env(prefix string) Source { return envSource{prefix: strings.ToUpper(prefix
 
 // Load applies sources in order and returns the resulting config.
 func Load(sources ...Source) (*Config, error) {
+	return LoadContext(context.Background(), sources...)
+}
+
+// LoadContext is Load with a context, used by Resolve sources for remote lookups.
+func LoadContext(ctx context.Context, sources ...Source) (*Config, error) {
 	entries := make(map[string]entry)
 	for _, s := range sources {
-		if err := s.apply(entries); err != nil {
+		if err := s.apply(ctx, entries); err != nil {
 			return nil, err
 		}
 	}
@@ -86,7 +93,7 @@ type fileSource struct {
 	optional bool
 }
 
-func (s fileSource) apply(entries map[string]entry) error {
+func (s fileSource) apply(_ context.Context, entries map[string]entry) error {
 	f, err := os.Open(s.path)
 	if err != nil {
 		if s.optional && errors.Is(err, os.ErrNotExist) {
@@ -174,7 +181,7 @@ func asMap(v any) (map[string]any, bool) {
 
 type envSource struct{ prefix string }
 
-func (s envSource) apply(entries map[string]entry) error {
+func (s envSource) apply(_ context.Context, entries map[string]entry) error {
 	for _, kv := range os.Environ() {
 		name, value, ok := strings.Cut(kv, "=")
 		if !ok || value == "" || !strings.HasPrefix(strings.ToUpper(name), s.prefix) {
