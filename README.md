@@ -9,7 +9,7 @@ A collection of **production-grade Go utilities** designed to reduce boilerplate
 * 🧵 **Task Runner** – sequential & parallel workflows with clean error handling
 * 🔄 **Stream Utils** – functional-style map / filter pipelines
 * 🗄️ **SQL Transaction Helpers** – composable transactional execution
-* ⚙️ **YAML Config Loader** – layered configs with overrides
+* ⚙️ **YAML Config Loader** – layered YAML + env var configs, typed accessors, AWS secrets resolution
 * 🤖 **LLM-Utils (TRON)** – token-efficient JSON encoding for LLMs
 
 ---
@@ -114,19 +114,28 @@ err := dbutils.NewSqlTxnExec[OrderRequest, OrderProcessingResponse](
 
 ## ⚙️ YAML Config Loader
 
-Load configuration files with **override precedence** (perfect for env-based configs).
+Layered config from **YAML files + environment variables**, with deep-merged overrides.
 
 ```go
-_, err := yaml_configs.LoadConfigWithSuffix("./configs", "local")
+cfg, err := yaml_configs.Load(
+	yaml_configs.File("config/env.yaml"),               // required
+	yaml_configs.OptionalFile("config/env.local.yaml"), // skipped if missing
+	yaml_configs.Env("MYAPP_"),                        // MYAPP_DATABASE_PORT overrides database.port
+)
 ```
 
 ```go
-host := yaml_configs.Get[string]("database.host")
+port, err := cfg.Int("database.port")
+timeout, err := cfg.Duration("http.timeout")
+debug := yaml_configs.GetOr(cfg, "debug", false)
 ```
 
-✔ Deterministic override order
-✔ Typed accessors
-✔ Zero boilerplate
+✔ Deterministic override order (files → env)
+✔ Typed accessors that return errors, never panic
+✔ Case-insensitive keys: `database.port` == `DATABASE_PORT`
+✔ Secrets resolved at load: `aws::secrets::prod/db$password`, `aws::ssm::/app/api-key` (via `yaml_configs/awsref`)
+
+📖 Full docs: [`yaml_configs/README.md`](yaml_configs/README.md)
 
 ---
 
